@@ -7,7 +7,7 @@ from pathlib import Path
 # change to convert with a and b tracks
 
 class Word(object):
-    """docstring for Word"""
+    """word object to keep track of words"""
     def __init__(self, start, end, label):
         super(Word, self).__init__()
         self.start = start
@@ -15,7 +15,7 @@ class Word(object):
         self.label = label
 
 class Phone(object):
-    """docstring for Phone"""
+    """phone object to keep track of phones"""
     def __init__(self, start, end, label):
         super(Phone, self).__init__()
         self.start = start
@@ -23,6 +23,21 @@ class Phone(object):
         self.label = label
         
 def get_words_phones(word_phone_file, wordsp):
+    """
+    take a word or phone file, read the xml, parse it into ordered tuples of (start, end, label)
+
+    Parameters
+    ----------
+    word_phone_file: str
+        the filename of the xml file to read
+    wordsp: bool
+        True if file is a word file, false if a phones file
+
+    Returns
+    -------
+    ordered_tups: list of tuples
+        list of  (start, end, label) tuples for each word/phone
+    """
     tree = ET.parse(word_phone_file)
     root = tree.getroot()
     j = 0
@@ -40,6 +55,22 @@ def get_words_phones(word_phone_file, wordsp):
     return (ordered_tups, j)
 
 def get_lists(phone_file, word_file):
+    """
+    takes the names of a word file and phone file, gets the tuples
+    turns each tuple into a word/phone object, adds silences
+
+    Parameters
+    ----------
+    phone_file: str
+        path to the .phones file
+    word_file
+        path to the .phonwords file
+
+    Returns
+    -------
+    tuple
+        (list of phones, list of words, end of the last phone, end of the last word, number of phones, number of words)
+    """
     all_phones_a = get_words_phones(phone_file, False)
     final_phone_end = all_phones_a[0][-1][1]
     phone_length = all_phones_a[1]
@@ -75,7 +106,25 @@ def get_lists(phone_file, word_file):
     return (phone_list, word_list, final_phone_end, final_word_end, phone_length, len(word_list))
 
 def convert(word_file_a, phone_file_a,word_file_b, phone_file_b, textgrid_file):
-    
+    """
+    given the word and phone files for speakers a and b, converts them into one textgrid file
+
+    Parameters
+    ----------
+    word_file_a : str
+        path to .A.phonwords file
+    phone_file_a : str
+        path to .A.phones file
+    word_file_b : str
+        path to B.phonwords file
+    phone_file_b : str
+        path to B.phones file
+    textgrid_file :  str
+        path to desired resulting textgrid
+
+    """
+
+
     tup_a = get_lists(phone_file_a, word_file_a)
     tup_b = get_lists(phone_file_b, word_file_b)
 
@@ -104,19 +153,25 @@ def convert(word_file_a, phone_file_a,word_file_b, phone_file_b, textgrid_file):
     textgrid.write(textgrid_file)
 
 
-
-EXCLUDE = ["sw2005","sw2018","sw2024","sw2041","sw2151",
-"sw2187","sw2241","sw2264","sw2279","sw2336","sw2405",
-"sw2421","sw2504","sw2510","sw2525","sw2526","sw2548",
-"sw2558","sw2565","sw2005","sw2008","sw2010","sw2012",
-"sw2015","sw2018","sw2020","sw2022","sw2024","sw2027",
-"sw2028", "sw2032","sw2035","sw2039","sw2041",]
+# if you want to redo some conversions because of transcription errors in xml, add to list ones you 
+# do not want to redo 
+EXCLUDE = []
 
 
-
+# list of failed conversions
 not_converted = []
 
 def convert_all(input_dir, output_dir):
+    """
+    convert a whole directory of xml files
+
+    Parameters
+    ----------
+    input_dir : str
+        path to the directory containing .phonwords files
+    output_dir : str
+        desired location of the output textgrids 
+    """
     succ = 0
     total = 0
     with open("not_converted.txt") as f1:

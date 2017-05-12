@@ -1,6 +1,10 @@
 import subprocess
 import os
 
+
+"""
+interactive helper to open the broken xml files in Sublime Text and tell you which timepoint to fix
+"""
 phone_path ="/Volumes/data/corpora/nxt_switchboard_ann/xml/phones/"
 words_path = "/Volumes/data/corpora/nxt_switchboard_ann/xml/phonwords"
 

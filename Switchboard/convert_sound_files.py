@@ -6,6 +6,12 @@ import sys
 SPH_REGEX = re.compile(".*\.sph$")
 
 def convert_directory(input_dir, destination_dir):
+    """
+    convert the .sph sound files in input_dir to .wav in destination_dir
+    checks first if there's a .textgrid for the sound file, since there are many 
+    more sound files than textgrids
+    """
+
     done = set()
     for root, dirs, files in os.walk(input_dir):
         for file in sorted(files):
