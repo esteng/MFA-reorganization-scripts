@@ -4,7 +4,11 @@ import re
 import sys
 import os
 from pathlib import Path
-
+from collections import defaultdict
+"""
+check to see how much data would be lost if we ignored segments that cause problems
+(very small percentage)
+"""
 
 class Word(object):
     """word object to keep track of words"""
@@ -123,7 +127,7 @@ def convert(word_file_a, phone_file_a,word_file_b, phone_file_b, textgrid_file):
         path to desired resulting textgrid
 
     """
-
+    error_count =0
 
     tup_a = get_lists(phone_file_a, word_file_a)
     tup_b = get_lists(phone_file_b, word_file_b)
@@ -135,39 +139,27 @@ def convert(word_file_a, phone_file_a,word_file_b, phone_file_b, textgrid_file):
 
     all_tiers = []
     textgrid = tg.TextGrid()
-    phone_tierA = tg.IntervalTier(name = "A - phone")
-    word_tierA = tg.IntervalTier(name = "A - word")
+    phone_tierA = tg.IntervalTier(name = "phones_A")
+    word_tierA = tg.IntervalTier(name = "words_A")
     all_tiers.append(phone_tierA)
     all_tiers.append(word_tierA)
 
-    phone_tierB = tg.IntervalTier(name = "B - phone")
-    word_tierB = tg.IntervalTier(name = "B - word")
+    phone_tierB = tg.IntervalTier(name = "phones_B")
+    word_tierB = tg.IntervalTier(name = "words_B")
     all_tiers.append(phone_tierB)
     all_tiers.append(word_tierB)
 
-
-    finished_tiers = []
     for i,tier in enumerate(all_tiers):
         for element in phones_words[i]:
             try:
                 tier.add(float(element.start), float(element.end), element.label)
-            except (ValueError, IndexError) as e:
-                continue
-        finished_tiers.append(tier)
+            except ValueError:
+                error_count +=1 
+        textgrid.append(tier)
 
-    for i, tier in enumerate(finished_tiers):
-        if (i+1)%2==0 and i>0:
-            fixed = extend_last(finished_tiers[i-1], finished_tiers[i])
-            finished_tiers[i-1] = fixed[0]
-            finished_tiers[i] = fixed[1]
+    # textgrid.write(textgrid_file)
 
-            textgrid.append(finished_tiers[i-1])
-            textgrid.append(finished_tiers[i])
-
-
-
-    textgrid.write(textgrid_file)
-
+    return (error_count, int(phone_length_b) + int(phone_length_a))
 
 # if you want to redo some conversions because of transcription errors in xml, add to list ones you 
 # do not want to redo 
@@ -176,20 +168,6 @@ EXCLUDE = []
 
 # list of failed conversions
 not_converted = []
-
-def extend_last(phone_tier, word_tier):
-    max_phone = phone_tier.bounds()[1]
-    max_word = word_tier.bounds()[1]
-
-    difference = max_phone-max_word
-
-    if difference < 0:
-        # extend phone tier by adding a silence 
-        phone_tier.add(max_phone, max_word, "SIL")
-    elif difference > 0:
-        word_tier.add(max_word, max_phone, "<SIL>")
-
-    return phone_tier, word_tier
 
 def convert_all(input_dir, output_dir):
     """
@@ -202,6 +180,8 @@ def convert_all(input_dir, output_dir):
     output_dir : str
         desired location of the output textgrids 
     """
+    all_phones = []
+    errors = defaultdict(int)
     succ = 0
     total = 0
     with open("not_converted.txt") as f1:
@@ -226,14 +206,18 @@ def convert_all(input_dir, output_dir):
                 textgrid_name = num_name[0:2]+"0"+num_name[2:]+ ".textgrid"
                 tg_output = os.path.join(output_dir, textgrid_name)
                 try:
-                    convert(A_phonwords_name, A_phone_name, B_phonwords_name, B_phone_name, tg_output)
+                    c = convert(A_phonwords_name, A_phone_name, B_phonwords_name, B_phone_name, tg_output)
+                    errors[num_name] = c[0]
+                    all_phones.append(c[1])
                     succ +=1 
                 except (ValueError, IndexError) as e:
                     not_converted.append((num_name,e))
                 total +=1
 
-    print("percent converted: {}".format(succ/total))
-
+    # print("percent converted: {}".format(succ/total))
+    print("total errors: {}".format(sum(errors.values())))
+    print("average errors per file {}".format(sum(errors.values())/len(errors.keys())))
+    print("total number of phones: {}".format(sum(all_phones)))
 
 if __name__ == '__main__':
     input_dir = sys.argv[1]

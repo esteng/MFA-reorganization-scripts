@@ -93,3 +93,9 @@ ENV/
 *.wav
 
 *.lab
+
+*.txt
+
+AudioBNC/fix_for_fave.py
+
+Switchboard/influxd

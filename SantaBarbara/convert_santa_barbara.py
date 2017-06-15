@@ -5,11 +5,99 @@ from collections import defaultdict
 import textgrid as tg
 import sys
 
-def get_utterances(file, textgrid_file):
+
+def get_utterances_p2_4(file, textgrid_file):
     """ 
     read utterance from .trn file and write them to textgrid format
     collapses utterances with <.15s pauses between them into 1 utterance
-    textgrid tiers are based on speakers (each speaker |-> 1 tier)
+    textgrid tiers are based on speakers (each speaker |-> 1 tier). For textgrids in Part1
+    
+    Parameters
+    ----------
+    file : str
+        path to .trn file
+    textgrid_file : str
+        path to textgrid file
+    """
+
+    with open(file) as f1:
+        lines = f1.readlines()
+    
+    ordered_tups = []
+    speakers = defaultdict(list)
+    skipped = 0
+    
+    for i,line in enumerate(lines):
+        if '\x00' in line:
+            line = "c".join(line.split('\x00'))
+        splitline = re.split("\t+", line)
+
+        start = splitline[0]
+        end = splitline[1]
+        if splitline[2].strip().endswith(":"):
+            speaker = splitline[2]
+            try:
+                label = splitline[3]
+            except IndexError:
+                label = ""
+        else:
+            speaker = ordered_tups[i-1][2]
+            try:
+                label = splitline[2]
+            except IndexError:
+                label = ""
+
+        label = re.sub("[=_%]","", label).strip()
+        speaker = re.sub("[:\s]","",speaker)
+        
+        ordered_tups.append( (start, end, speaker, label) )
+        speakers[speaker.lower()].append( (start, end, label))
+   
+    speakers = clean(speakers)
+
+    textgrid = tg.TextGrid()
+    for i,speaker in enumerate(speakers.keys()):
+        tier = tg.IntervalTier(name = "{}".format(speaker.strip()))
+        for j, tup in enumerate(speakers[speaker]):
+            try:
+                if float(tup[0]) == float(tup[1]):
+                    continue
+            except ValueError:
+                pass
+            try:
+                tier.add(float(tup[0]), float(tup[1]), tup[2].strip())
+            except ValueError:
+                try:
+                    previous = tier[-1]
+                except IndexError:
+                    skipped +=1
+                    continue
+                previous_end = previous.maxTime
+                difference = previous.maxTime - float(tup[0])
+                if difference < 0 :
+                    skipped +=1
+                    continue
+                if float(tup[0]) + difference == float(tup[1]):
+                    skipped +=1
+                    continue
+                tier.add(float(tup[0]) + difference, float(tup[1]), tup[2].strip())
+        if len(tier.intervals)>0:
+            textgrid.append(tier)
+    
+    textgrid.write(textgrid_file)
+
+    print("skipped: {}".format(skipped))
+
+
+
+
+
+
+def get_utterances_p1(file, textgrid_file):
+    """ 
+    read utterance from .trn file and write them to textgrid format
+    collapses utterances with <.15s pauses between them into 1 utterance
+    textgrid tiers are based on speakers (each speaker |-> 1 tier). For textgrids in Part1
     
     Parameters
     ----------
@@ -163,7 +251,11 @@ def convert_all(source_dir, destination_dir, exclude, move_wav = False):
                         wav_name = just_name+ ".wav"
                         shutil.copy(os.path.join(root,wav_name), os.path.join(destination_dir, wav_name))
                         print('copied')
-                    get_utterances(os.path.join(root,file), os.path.join(destination_dir, just_name+".textgrid"))
+                    if "Part1" in root:
+                        get_utterances_p1(os.path.join(root,file), os.path.join(destination_dir, just_name+".textgrid"))
+                    else:
+                        get_utterances_p2_4(os.path.join(root,file), os.path.join(destination_dir, just_name+".textgrid"))
+
 
 if __name__ == '__main__':
     input_dir = sys.argv[1]
