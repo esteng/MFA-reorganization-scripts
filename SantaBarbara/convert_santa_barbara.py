@@ -5,6 +5,11 @@ from collections import defaultdict
 import textgrid as tg
 import sys
 
+remove_regex = re.compile(r"<<?[A-Z@]+|[A-Z@]+>?>|\(?\((?!H)[A-Z\-]+\)\)?")
+sub_regex = re.compile(r"\[[\d!]?|[\d!]?\]|\.{2,3}|[<>\-!=_%+;`\/\\&~]")
+breath_regex = re.compile(r"\(H+x*\)")
+laugh_regex = re.compile(r"(@ ?)+")
+
 
 def get_utterances_p2_4(file, textgrid_file):
     """ 
@@ -57,7 +62,7 @@ def get_utterances_p2_4(file, textgrid_file):
 
     textgrid = tg.TextGrid()
     for i,speaker in enumerate(speakers.keys()):
-        tier = tg.IntervalTier(name = "{}".format(speaker.strip()))
+        tier = tg.IntervalTier(name = "{} - utterance".format(speaker.strip()))
         for j, tup in enumerate(speakers[speaker]):
             try:
                 if float(tup[0]) == float(tup[1]):
@@ -130,11 +135,8 @@ def get_utterances_p1(file, textgrid_file):
             except:
                 label = ""
             
-            label = re.sub("[=_%]","", label)
-            speaker = re.sub("[:\s]","",speaker)
+            # label = re.sub("[=_%]","", label)
             
-            ordered_tups.append( (start, end, speaker, label) )
-            speakers[speaker.lower()].append( (start, end, label))
         except IndexError:
             try:
                 splitline = re.split("\t+", line)
@@ -148,16 +150,33 @@ def get_utterances_p1(file, textgrid_file):
                     label = splitline[2]
                 except:
                     label = ""
-                label = re.sub("[=_%]","", label)
-                ordered_tups.append( (start, end, speaker, label) )
-                speakers[speaker.lower()].append( (start, end, label))
+                
             except IndexError:
-                skipped +=1 
+                total_split = re.split("\s", line)
+                start = total_split[0]
+                end = total_split[1]
+                speaker = total_split[2]
+                if re.match("\s+", speaker) is not None or speaker is None:
+                    speaker = ordered_tups[i-1][2]
+                label = " ".join(total_split[3:])
+
+        label = remove_regex.sub("", label)
+        label = sub_regex.sub("",label)
+        label = breath_regex.sub("%BREATH%", label)
+        label = laugh_regex.sub("@ ", label)
+        speaker = re.sub("[:\s]","",speaker)
+        speaker = re.sub(">env","env", speaker)
+
+        # if label not in ["", " ", None]:
+        ordered_tups.append( (start, end, speaker, label) )
+        speakers[speaker.lower()].append( (start, end, label))
+
+
     speakers = clean(speakers)
 
     textgrid = tg.TextGrid()
     for i,speaker in enumerate(speakers.keys()):
-        tier = tg.IntervalTier(name = "{}".format(speaker.strip()))
+        tier = tg.IntervalTier(name = "{} - utterance".format(speaker.strip()))
         for j, tup in enumerate(speakers[speaker]):
             try:
                 if float(tup[0]) == float(tup[1]):
@@ -177,9 +196,13 @@ def get_utterances_p1(file, textgrid_file):
                 if difference < 0 :
                     skipped +=1
                     continue
-                if float(tup[0]) + difference == float(tup[1]):
-                    skipped +=1
-                    continue
+                # if float(tup[0]) + difference == float(tup[1]):
+                #     print("overlap")
+                #     print(speaker)
+                #     print(tup)
+                #     skipped +=1
+                #     continue
+
                 tier.add(float(tup[0]) + difference, float(tup[1]), tup[2].strip())
         if len(tier.intervals)>0:
             textgrid.append(tier)
@@ -214,13 +237,20 @@ def clean(speakers):
             old_tup = list(tups[i-1])
             current_tup = list(tups[i])
             # if difference between new and old < .15 collapse
-            if float(current_tup[0]) - float(old_tup[1])  < .15:
-                new_tup[1] = current_tup[1] 
-                new_tup[2] = new_tup[2].strip()+  " " + current_tup[2].strip()
+            try:
+                if float(current_tup[0]) - float(old_tup[1])  < .15:
+                    new_tup[1] = current_tup[1] 
+                    new_tup[2] = new_tup[2].strip()+  " " + current_tup[2].strip()
+                    # print("new tup: ", new_tup[2])
+                    # i+=1
+                else:
+                    new_tups.append(new_tup)
+                    new_tup = list(current_tup)
+            except ValueError:
+                # fix this later!
+                print(tups[i])
             #otherwise add the current and start over
-            else:
-                new_tups.append(new_tup)
-                new_tup = list(current_tup)
+            
             i+=1
 
         new_speakers[speaker] = new_tups
@@ -257,6 +287,44 @@ def convert_all(source_dir, destination_dir, exclude, move_wav = False):
                         get_utterances_p2_4(os.path.join(root,file), os.path.join(destination_dir, just_name+".textgrid"))
 
 
+
+# def get_words(source, dictionary):
+#     words = set()
+#     for root, dirs, files in os.walk(source, topdown = True):
+#         for file in files:
+#             if file.endswith('.trn'):
+#                 just_name = file.split(".")[0]
+#                 num = "".join(just_name[-3:])
+#                 word_tup = get_utterances_p1(os.path.join(root,file), os.path.join("", just_name+".textgrid"))
+
+#                 labels = set([x[3].strip() for x in word_tup])
+#                 list_words = [re.split("\s", x) for x in labels]
+#                 for line in list_words:
+#                     words |= set([re.sub("[\.,?!]","",x )for  x in line])
+
+#     with open(dictionary) as f1:
+#         dict_words = set([re.split("\s+",x)[0].lower().strip() for x in f1.readlines()])
+
+#     new_words = []
+#     exclude_regex = re.compile(r"<<.*>?>?|\(\(.*\)?\)?|\([A-Zhx]+\)?|%|\([\.\d]+\)|<.*|.*>")
+#     sub_regex = re.compile(r"\[\d|\d\]")
+#     sub_regex_2 = re.compile(r"[+=!;`/\&\[\]]")
+#     # test clean
+#     for word in words:
+
+#         if exclude_regex.search(word.strip()) is None:
+#             word = sub_regex.sub("",word)
+#             word = sub_regex_2.sub("",word)
+#             new_words.append(word.lower())
+
+#     new_words = sorted(set(new_words))
+
+#     oovs = set([x for x in new_words if x not in dict_words])
+
+#     with open("oovs","w") as f2:
+#         [f2.write(word.strip()+"\n") for word in sorted(oovs)]
+
+
 if __name__ == '__main__':
     input_dir = sys.argv[1]
     output_dir = sys.argv[2]
@@ -267,6 +335,9 @@ if __name__ == '__main__':
         convert_all(input_dir, output_dir, exclude, True)
     else:
         convert_all(input_dir, output_dir, exclude)
+
+    # get_words("/Volumes/data/corpora/SantaBarbara/Part1/speech", "/Volumes/data/datasets/aligner_benchmarks/LibriSpeech/librispeech-lexicon.txt")
+
 
     # convert_all("/Volumes/data/corpora/SantaBarbara/Part1/speech", 
     # "/Volumes/data/corpora/Santa_Barbara_textgrids/Part1")

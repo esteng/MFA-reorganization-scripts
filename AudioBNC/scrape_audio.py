@@ -15,12 +15,12 @@ def get_one_file(url, dest):
     return 0
 
 
-with open("/Volumes/data/corpora/AudioBNC/wavs/filelist-wav.txt") as f1:
+with open("/Volumes/data/corpora/AudioBNC/filelist-wav.txt") as f1:
     files = list(map(lambda x: x.strip(), f1.readlines()))
 with open("finished.txt") as f1:
     done = set(map(lambda x: x.strip(), f1.readlines()))
 
-dest_path = "/Volumes/data/corpora/AudioBNC/wavs/"
+dest_path = "/Volumes/data/corpora/AudioBNC/AudioBNCTextGrids_for_PG/"
 url_start = "http://bnc.phon.ox.ac.uk/data/"
 # get_one_file("http://bnc.phon.ox.ac.uk/data/021A-C0897X0189XX-AAZZP0.wav", "/Volumes/data/corpora/AudioBNC/wavs/021A-C0897X0189XX-AAZZP0.wav")
 with open("finished.txt","a+") as f2:

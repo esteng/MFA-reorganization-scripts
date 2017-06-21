@@ -7,23 +7,23 @@ import os
 
 graph_db = {'host':'localhost', 'port': 7474}
 
-path_to_switchboard = os.path.join("/Volumes","data","corpora","AudioBNC", "test_subset_fixed")
+path_to_bnc = os.path.join("/Volumes","data","corpora","AudioBNC", "AudioBNC")
 
 if __name__ == '__main__':
     config = CorpusConfig("audioBNC", **graph_db)
     print("loading corpus...")
     with CorpusContext(config) as g:
         g.reset()
-        parser = pgio.inspect_fave(path_to_switchboard)
-        g.load(parser, path_to_switchboard)
+        parser = pgio.inspect_fave(path_to_bnc)
+        g.load(parser, path_to_bnc)
 
-        q = g.query_graph(g.word).filter(g.word.label=="think")
+        q = g.query_graph(g.word).filter(g.word.label=="RIGHT")
 
         results = q.all()
 
         assert(len(results) > 0)
 
 
-        q = g.query_graph(g.phone).filter(g.phone.label=="ow")
+        q = g.query_graph(g.phone).filter(g.phone.label=="AH1")
         results_phone = q.all()
         assert(len(results_phone) > 0 )
